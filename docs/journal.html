@@ -9,9 +9,9 @@
 <meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
 
 
-<meta name="author" content="Recep" />
+<meta name="author" content="Recep Savas" />
 
-<meta name="date" content="2020-11-05" />
+<meta name="date" content="2020-11-29" />
 
 <title>Journal (reproducible report)</title>
 
@@ -405,41 +405,656 @@ div.tocify {
 
 
 <h1 class="title toc-ignore">Journal (reproducible report)</h1>
-<h4 class="author">Recep</h4>
-<h4 class="date">2020-11-05</h4>
+<h4 class="author">Recep Savas</h4>
+<h4 class="date">2020-11-29</h4>
 
 </div>
 
 
-<p><strong>IMPORTANT:</strong> You can delete everything in here and start fresh. You might want to start by not deleting anything above this line until you know what that stuff is doing.</p>
-<p>This is an <code>.Rmd</code> file. It is plain text with special features. Any time you write just like this, it will be compiled to normal text in the website. If you put a # in front of your text, it will create a top level-header.</p>
-<div id="m54" class="section level1" number="1">
-<h1 number="1"><span class="header-section-number">1</span> M54</h1>
-<p>Last compiled: 2020-11-30</p>
-<p>Notice that whatever you define as a top level header, automatically gets put into the table of contents bar on the left.</p>
-<div id="second-level-header" class="section level2" number="1.1">
-<h2 number="1.1"><span class="header-section-number">1.1</span> Second level header</h2>
-<p>You can add more headers by adding more hashtags. These won’t be put into the table of contents</p>
-<div id="third-level-header" class="section level3" number="1.1.1">
-<h3 number="1.1.1"><span class="header-section-number">1.1.1</span> third level header</h3>
-<p>Here’s an even lower level header</p>
-</div>
-</div>
-</div>
-<div id="my-second-post-note-the-order" class="section level1" number="2">
-<h1 number="2"><span class="header-section-number">2</span> My second post (note the order)</h1>
-<p>Last compiled: 2020-11-30</p>
-<p>I’m writing this tutorial going from the top down. And, this is how it will be printed. So, notice the second post is second in the list. If you want your most recent post to be at the top, then make a new post starting at the top. If you want the oldest first, do, then keep adding to the bottom</p>
-</div>
-<div id="adding-r-stuff" class="section level1" number="3">
-<h1 number="3"><span class="header-section-number">3</span> Adding R stuff</h1>
-<p>So far this is just a blog where you can write in plain text and serve your writing to a webpage. One of the main purposes of this lab journal is to record your progress learning R. The reason I am asking you to use this process is because you can both make a website, and a lab journal, and learn R all in R-studio. This makes everything really convenient and in the same place.</p>
-<p>So, let’s say you are learning how to make a histogram in R. For example, maybe you want to sample 100 numbers from a normal distribution with mean = 0, and standard deviation = 1, and then you want to plot a histogram. You can do this right here by using an r code block, like this:</p>
-<pre class="r"><code>samples &lt;- rnorm(100, mean=0, sd=1)
-hist(samples)</code></pre>
-<p><img src="journal_files/figure-html/unnamed-chunk-1-1.png" width="672" /></p>
-<p>When you knit this R Markdown document, you will see that the histogram is printed to the page, along with the R code. This document can be set up to hide the R code in the webpage, just delete the comment (hashtag) from the cold folding option in the yaml header up top. For purposes of letting yourself see the code, and me see the code, best to keep it the way that it is. You’ll learn that all of these things and more can be customized in each R code block.</p>
-</div>
+<p>Last compiled: 2020-12-06</p>
+<p>##1 Introduction to Tidyverse Challenge</p>
+<pre class="r"><code>library(tidyverse)
+library(readxl)
+library(lubridate)
+
+
+bikes &lt;- read_excel(&quot;C:/Users/Recep Savas/oo/r_data_works/DS_101/00_data/01_bike_sales/01_raw_data/bikes.xlsx&quot;)
+orderlines &lt;- read_excel(&quot;C:/Users/Recep Savas/oo/r_data_works/DS_101/00_data/01_bike_sales/01_raw_data/orderlines.xlsx&quot;)
+bikeshops &lt;- read_excel(&quot;C:/Users/Recep Savas/oo/r_data_works/DS_101/00_data/01_bike_sales/01_raw_data/bikeshops.xlsx&quot;)
+
+new_orderlines_combined &lt;- orderlines %&gt;%
+  
+  left_join(bikes, by=c(&#39;product.id&#39; = &#39;bike.id&#39;)) %&gt;%
+  left_join(bikeshops, by = c(&#39;customer.id&#39; = &quot;bikeshop.id&quot;))
+
+
+wrangled_tbl &lt;- new_orderlines_combined  %&gt;%
+  
+  separate(col = category,
+           into = c(&#39;category.1&#39;, &#39;category.2&#39;, &#39;category.3&#39;),
+           sep = &#39; - &#39;) %&gt;%
+  
+  separate(col = location,
+           into = c(&#39;city&#39;, &#39;state&#39;),
+           sep = &#39;,&#39;) %&gt;%
+  
+  mutate(total.price = price * quantity) %&gt;%
+  
+  select(-...1,-gender) %&gt;%
+  
+  select(-ends_with(&#39;.id&#39;)) %&gt;%
+  
+  bind_cols(new_orderlines_combined  %&gt;% select(order.id)) %&gt;%
+  
+  select(order.id, contains(&#39;order&#39;), contains(&#39;model&#39;), contains(&quot;category&quot;),
+         price, quantity, total.price,
+         everything()) %&gt;%
+  
+  rename(bikeshop = name) %&gt;%
+  set_names(names(.) %&gt;%  str_replace_all(&quot;\\.&quot;, &quot;_&quot;))
+
+
+sales_by_year &lt;- wrangled_tbl %&gt;%
+  
+  #order_date and total_price are selected
+  select(order_date, total_price, state) %&gt;%
+  
+  #New column created
+  mutate(year = year(order_date)) %&gt;%
+  
+  #Grouped by year and location. Shows total prices per year according to locations.
+  group_by(year, state) %&gt;%
+  summarize(sales = sum(total_price)) %&gt;%
+  
+  #Add another column which basically presents the data in a nicer format
+  mutate(sales_text = scales::dollar(sales, big.mark = &quot;.&quot;, decimal.mark = &quot;,&quot;,
+                                     prefix = &quot;&quot;,
+                                     suffix = &#39;€&#39;))
+
+
+
+sales_by_year %&gt;%
+  
+  ggplot(aes(x = year, y = sales, fill = state)) +
+  geom_col() + # Run up to here to get a stacked bar plot
+  facet_wrap(~ state) +
+  
+  scale_y_continuous(labels = scales::dollar_format(big.mark = &quot;.&quot;, 
+                                                    decimal.mark = &quot;,&quot;, 
+                                                    prefix = &quot;&quot;, 
+                                                    suffix = &quot; €&quot;)) +
+  labs(
+    title = &quot;Revenue by year and state&quot;,
+    subtitle = &quot;Each product category has an upward trend&quot;,
+    fill = &quot;States&quot; # Changes the legend name
+  )</code></pre>
+<p><img src="journal_files/figure-html/unnamed-chunk-1-1.png" width="1440" /></p>
+<p>##2.a Data Acquisition (API)</p>
+<pre class="r"><code>library(pacman)
+library(jsonlite)
+library(glue)
+library(httr)
+library(rstudioapi)
+library(tidyverse)
+
+  
+ACCUWEATHER_KEY    &lt;- &quot;h4m7GxGcfc0XDPinDma8sEfj2Ar7iR85&quot;
+
+
+raw_accuweather_data &lt;- GET(glue(&quot;http://dataservice.accuweather.com/forecasts/v1/daily/1day/178087?apikey={ACCUWEATHER_KEY}&quot;))
+
+
+accuweather_data &lt;- content(raw_accuweather_data, as = &#39;text&#39;)
+accuweather_data_json &lt;- fromJSON(accuweather_data)
+berlin_forecast &lt;- accuweather_data_json$DailyForecasts</code></pre>
+<p>##2.b Data Acquisition</p>
+<pre class="r"><code>library(RSQLite)
+library(tidyverse)
+library(httr)
+library(glue)
+library(jsonlite)
+library(rvest)
+library(stringi)
+library(xopen)
+library(dplyr)
+
+base_url &lt;- &#39;https://www.rosebikes.com/bikes&#39;
+
+# 1. Function to get bike family URLs.
+get_bike_family_urls &lt;- function(base_url) {
+  
+  bike_family_urls &lt;- read_html(base_url) %&gt;%
+    html_nodes(css = &quot;.catalog-categories-item &gt; a&quot;) %&gt;%
+    html_attr(&#39;href&#39;) %&gt;%
+    
+    # Convert vector to tibble
+    
+    enframe(name = &quot;position&quot;, value = &quot;subdirectory&quot;) %&gt;%
+    # Add the domain because we will get only the subdirectories
+    mutate(
+      url = glue(&#39;https://www.rosebikes.com{subdirectory}&#39;)
+    ) 
+  
+  bike_family_urls &lt;- bike_family_urls %&gt;% 
+    filter(!grepl(&#39;sale&#39;, url)) %&gt;%
+    filter(!grepl(&#39;kids&#39;, url))
+  bike_family_urls &lt;- bike_family_urls[&#39;url&#39;]
+  
+}
+
+
+# 2. Function to get bike family URLs.
+
+get_model_urls &lt;- function(url) {
+  
+  bike_type_url &lt;- read_html(url) %&gt;%
+    html_nodes(css = &quot;.catalog-category-bikes__content &gt; a&quot;) %&gt;%
+    html_attr(&#39;href&#39;) %&gt;%
+    enframe(name = &quot;position&quot;, value = &quot;url&quot;) %&gt;%
+    mutate(url = glue(&#39;https://www.rosebikes.com{url}&#39;)) 
+}
+
+
+# 3. Function to get the names of each bike 
+
+get_bike_names &lt;- function(url) {
+  
+  bike_model_name_tbl &lt;- read_html(url) %&gt;%
+    html_nodes(css = &quot;.catalog-category-model__title&quot;) %&gt;%
+    html_text() %&gt;%
+    # Convert vector to tibble
+    as_tibble()
+    
+  
+}
+
+# 4. Function to get the prices of each bike 
+
+get_bike_prices &lt;- function(url) {
+  
+  bike_model_price_tbl &lt;- read_html(url) %&gt;%
+    html_nodes(css = &quot;.product-tile-price__current-value&quot;) %&gt;%
+    html_text() %&gt;%
+    # Convert vector to tibble
+    as_tibble()
+  
+}
+
+
+
+#### APPLYING ABOVE FUNCTIONS
+
+bike_family_url_tbl &lt;- get_bike_family_urls(base_url)
+bike_family_url_tbl &lt;- bike_family_url_tbl %&gt;%
+  slice(1:3) # Pick 3 categories
+
+
+
+
+# Create a table with bike model URLS
+bike_model_url_tbl &lt;- tibble()
+
+for (i in seq_along(bike_family_url_tbl$url)) {
+  
+  web &lt;- toString(bike_family_url_tbl$url[i])
+  bike_model_url_tbl &lt;- bind_rows(bike_model_url_tbl, get_model_urls(web))
+  
+}
+
+
+# Create a table with bike model names
+bike_model_names_tbl &lt;- tibble()
+
+for (i in seq_along(bike_model_url_tbl$url)) {
+  
+  web &lt;- toString(bike_model_url_tbl$url[i])
+  bike_model_names_tbl &lt;- bind_rows(bike_model_names_tbl, get_bike_names(web))
+  
+}
+
+# Rename cols
+names(bike_model_names_tbl)[1] &lt;- &quot;Bike Model&quot;
+
+
+
+# Create a table with bike prices
+bike_model_prices_tbl &lt;- tibble()
+
+for (i in seq_along(bike_model_url_tbl$url)) {
+
+  web &lt;- toString(bike_model_url_tbl$url[i])
+  bike_model_prices_tbl &lt;- bind_rows(bike_model_prices_tbl, get_bike_prices(web))
+
+}
+
+# Rename cols
+names(bike_model_prices_tbl)[1] &lt;- &quot;Bike Prices&quot;
+
+# Join into one table
+table_of_prices &lt;- bind_cols(bike_model_names_tbl,bike_model_prices_tbl)
+
+knitr::kable(table_of_prices[1:10, ], caption = &#39;Rosebike Bike Model &amp; Prices&#39;)</code></pre>
+<table>
+<caption>Rosebike Bike Model &amp; Prices</caption>
+<thead>
+<tr class="header">
+<th align="left">Bike Model</th>
+<th align="left">Bike Prices</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">GROUND CONTROL 1</td>
+<td align="left">€1,699.00</td>
+</tr>
+<tr class="even">
+<td align="left">GROUND CONTROL 2</td>
+<td align="left">€1,999.00</td>
+</tr>
+<tr class="odd">
+<td align="left">GROUND CONTROL 3</td>
+<td align="left">€2,599.00</td>
+</tr>
+<tr class="even">
+<td align="left">GROUND CONTROL 4</td>
+<td align="left">€3,299.00</td>
+</tr>
+<tr class="odd">
+<td align="left">ROOT MILLER 1</td>
+<td align="left">€1,999.00</td>
+</tr>
+<tr class="even">
+<td align="left">ROOT MILLER 2</td>
+<td align="left">€2,599.00</td>
+</tr>
+<tr class="odd">
+<td align="left">ROOT MILLER 3</td>
+<td align="left">€3,399.00</td>
+</tr>
+<tr class="even">
+<td align="left">PIKES PEAK 1</td>
+<td align="left">€3,099.00</td>
+</tr>
+<tr class="odd">
+<td align="left">PIKES PEAK 2</td>
+<td align="left">€3,599.00</td>
+</tr>
+<tr class="even">
+<td align="left">PIKES PEAK 3</td>
+<td align="left">€4,299.00</td>
+</tr>
+</tbody>
+</table>
+<p>##3.a Data Wrangling</p>
+<pre class="r"><code>library(vroom)
+library(RSQLite)
+library(tidyverse)
+library(httr)
+library(glue)
+library(jsonlite)
+library(rvest)
+library(stringi)
+library(xopen)
+library(dplyr)
+
+col_types &lt;- list(
+  id = col_character(),
+  type = col_character(),
+  number = col_character(),
+  country = col_character(),
+  date = col_date(&quot;%Y-%m-%d&quot;),
+  abstract = col_character(),
+  title = col_character(),
+  kind = col_character(),
+  num_claims = col_double(),
+  filename = col_character(),
+  withdrawn = col_double()
+)
+
+# Applying Assignee File Table
+col_types2 &lt;- list(
+  id = col_character(),
+  type = col_character(),
+  name_first = col_character(),
+  name_last = col_character(),
+  organization = col_character()
+)
+
+# Applying Patent Assignee File Table
+col_types3 &lt;- list(
+  patent_id = col_character(),
+  assignee_id = col_character(),
+  location_id = col_character()
+)
+  
+  
+  
+  
+
+position_file1 &lt;- (&quot;C:/Users/Recep Savas/oo/r_data_works/0.3 Data Wrangling/patent.tsv&quot;)
+position_file2 &lt;- (&quot;C:/Users/Recep Savas/oo/r_data_works/0.3 Data Wrangling/assignee.tsv&quot;)
+position_file3 &lt;- (&quot;C:/Users/Recep Savas/oo/r_data_works/0.3 Data Wrangling/patent_assignee.tsv&quot;)
+
+patent_table &lt;- vroom(
+  file       = position_file1, 
+  delim      = &quot;\t&quot;, 
+  col_types  = col_types,
+  na         = c(&quot;&quot;, &quot;NA&quot;, &quot;NULL&quot;)
+)
+
+
+assignee_table &lt;- vroom(
+  file       = position_file2, 
+  delim      = &quot;\t&quot;, 
+  col_types  = col_types2,
+  na         = c(&quot;&quot;, &quot;NA&quot;, &quot;NULL&quot;)
+)
+
+pat_assignee_table &lt;- vroom(
+  file       = position_file3, 
+  delim      = &quot;\t&quot;, 
+  col_types  = col_types3,
+  na         = c(&quot;&quot;, &quot;NA&quot;, &quot;NULL&quot;)
+) 
+
+
+
+
+
+
+# ----The most assigned/gra patents among the 10 US companies----
+
+
+# Reaching the patents by corporations from assignee table ,  
+# for the typeof &quot;2&quot; 
+
+# names and assignee IDs of USA corporation 
+corp_id_names &lt;- assignee_table %&gt;%
+  select(id, type, organization) %&gt;%
+  filter(type == 2) # to make sure these are from USA
+
+
+
+
+# Find companies in the world with assigned a patent. 
+# Group by the assignee_id, which is unique to each corporation, 
+# afterwards find the number of patents for each corporation.
+
+
+top_patent_wrld &lt;- pat_assignee_table %&gt;%
+  group_by(assignee_id) %&gt;%
+  summarize(
+    count = n()
+    
+    ) %&gt;%
+  ungroup() %&gt;%
+  arrange(desc(count)) %&gt;%
+  rename(id = assignee_id) %&gt;%
+  head(100)           # Top 100 companies in the world which have been granted a patent.
+                                  
+
+# Top 100 companies in the world is reasonably high to cross reference with
+# U.S companies. To do this, a right_join by their unique id can be used.
+
+top_10_us &lt;- right_join(top_patent_wrld, corp_id_names, by = &#39;id&#39;) %&gt;%
+  head(10) %&gt;%
+  select(organization)
+  
+
+temp = &quot;C:/Users/Recep Savas/oo/ws20-business-data-science-basics---lab-journal-savars/top10.rds&quot;
+write_rds(top_10_us, temp)</code></pre>
+<pre class="r"><code>read_rds(&quot;C:/Users/Recep Savas/oo/ws20-business-data-science-basics---lab-journal-savars/top10.rds&quot;)</code></pre>
+<pre><code>## # A tibble: 10 x 1
+##    organization                               
+##    &lt;chr&gt;                                      
+##  1 International Business Machines Corporation
+##  2 General Electric Company                   
+##  3 Intel Corporation                          
+##  4 Hewlett-Packard Development Company, L.P.  
+##  5 Microsoft Corporation                      
+##  6 Micron Technology, Inc.                    
+##  7 QUALCOMM Incorporated                      
+##  8 Texas Instruments Incorporated             
+##  9 Xerox Corporation                          
+## 10 Apple Inc.</code></pre>
+<p>##3.b Data Wrangling</p>
+<pre class="r"><code>library(vroom)
+library(RSQLite)
+library(tidyverse)
+library(httr)
+library(glue)
+library(jsonlite)
+library(rvest)
+library(stringi)
+library(xopen)
+library(dplyr)
+
+col_type &lt;- list(
+  id = col_character(),
+  type = col_character(),
+  number = col_character(),
+  country = col_character(),
+  date = col_date(&quot;%Y-%m-%d&quot;),
+  abstract = col_character(),
+  title = col_character(),
+  kind = col_character(),
+  num_claims = col_double(),
+  filename = col_character(),
+  withdrawn = col_double()
+)
+
+# Applying Assignee File Table
+col_type2 &lt;- list(
+  id = col_character(),
+  type = col_character(),
+  name_first = col_character(),
+  name_last = col_character(),
+  organization = col_character()
+)
+
+# Applying Patent Assignee File Table
+col_type3 &lt;- list(
+  patent_id = col_character(),
+  assignee_id = col_character(),
+  location_id = col_character()
+)
+  
+  
+  
+  
+
+doc_path1 &lt;- (&quot;C:/Users/Recep Savas/oo/r_data_works/0.3 Data Wrangling/patent.tsv&quot;)
+doc_path2 &lt;- (&quot;C:/Users/Recep Savas/oo/r_data_works/0.3 Data Wrangling/assignee.tsv&quot;)
+doc_path3 &lt;- (&quot;C:/Users/Recep Savas/oo/r_data_works/0.3 Data Wrangling/patent_assignee.tsv&quot;)
+
+patent_table &lt;- vroom(
+  file       = doc_path1, 
+  delim      = &quot;\t&quot;, 
+  col_type  = col_type,
+  na         = c(&quot;&quot;, &quot;NA&quot;, &quot;NULL&quot;)
+)
+
+
+assignee_table &lt;- vroom(
+  file       = doc_path2, 
+  delim      = &quot;\t&quot;, 
+  col_type  = col_type2,
+  na         = c(&quot;&quot;, &quot;NA&quot;, &quot;NULL&quot;)
+)
+
+pat_assignee_table &lt;- vroom(
+  file       = doc_path3, 
+  delim      = &quot;\t&quot;, 
+  col_type  = col_type3,
+  na         = c(&quot;&quot;, &quot;NA&quot;, &quot;NULL&quot;)
+) 
+
+
+
+
+# to get &quot;U.S Companies Names and IDs&quot; from assignee.tsv data
+us_corporation_filter &lt;- assignee_table %&gt;%
+  filter(type == 2) %&gt;%
+  select(id, organization) %&gt;%
+  rename(assignee_id = id) 
+
+
+# to get &quot;patents issued in 2019&quot; by filtering patent.tsv 
+issued_2019 &lt;- patent_table %&gt;%
+  filter(year(date) == 2019) %&gt;%
+  select(number) %&gt;%
+  rename(patent_id = number)
+  
+# Combine U.S corporation assignee numbers with companies that have 
+# been assigned a patent (from around the world). This gives patents by their ID filed by 
+# u.s companies. 
+
+dt1 &lt;- merge(us_corporation_filter,pat_assignee_table,by=&quot;assignee_id&quot;)
+
+
+# Then combine the table of patents issued in the U.S for 2019
+dt2 &lt;- merge(dt1, issued_2019, by = &quot;patent_id&quot;) %&gt;%
+  group_by(organization) %&gt;%
+  summarise(
+    count = n()
+  ) %&gt;%
+  arrange(desc(count)) %&gt;%
+  head(10)
+
+
+world_corporation_filter &lt;- assignee_table %&gt;%
+  filter((type == 2 | type == 3)) %&gt;%
+  select(id, organization) %&gt;%
+  rename(assignee_id = id) 
+
+dt3 &lt;- merge(world_corporation_filter,pat_assignee_table,by=&quot;assignee_id&quot;)
+dt4 &lt;- merge(dt3, issued_2019, by = &quot;patent_id&quot;) %&gt;%
+  group_by(organization) %&gt;%
+  summarise(
+    count = n()
+  ) %&gt;%
+  arrange(desc(count)) %&gt;%
+  head(10)
+
+memory.limit(size = 6000)
+temp2 = &quot;C:/Users/Recep Savas/oo/ws20-business-data-science-basics---lab-journal-savars/top102019.rds&quot;
+write_rds(dt4, temp2)</code></pre>
+<pre class="r"><code> read_rds(&quot;C:/Users/Recep Savas/oo/ws20-business-data-science-basics---lab-journal-savars/top102019.rds&quot;)</code></pre>
+<pre><code>## # A tibble: 10 x 2
+##    organization                                count
+##    &lt;chr&gt;                                       &lt;int&gt;
+##  1 International Business Machines Corporation  9265
+##  2 Samsung Electronics Co., Ltd.                7205
+##  3 Canon Kabushiki Kaisha                       3595
+##  4 Intel Corporation                            3526
+##  5 LG Electronics Inc.                          3314
+##  6 Microsoft Technology Licensing, LLC          3106
+##  7 Apple Inc.                                   2817
+##  8 Ford Global Technologies, LLC                2624
+##  9 Amazon Technologies, Inc.                    2533
+## 10 Huawei Technologies Co., Ltd.                2454</code></pre>
+<p>##4.a Data Visualization</p>
+<pre class="r"><code>library(tidyverse)
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(scales)
+library(readxl)
+
+
+covid_data_tbl &lt;- read_excel(&quot;C:/Users/Recep Savas/oo/r_data_works/world_Corona.xlsx&quot;)
+covid_data_tbl &lt;- covid_data_tbl[order(as.Date(covid_data_tbl$dateRep, format=&quot;%d/%m/%Y&quot;)),]
+covid_data_tbl$cases &lt;- abs(covid_data_tbl$cases) # no negative cases :)
+
+
+covid_data_tbl2 &lt;- covid_data_tbl %&gt;%
+  filter(countriesAndTerritories %in% c(&#39;France&#39;, &#39;Germany&#39;,&#39;United_States_of_America&#39; , &#39;Spain&#39;, &#39;United_Kingdom&#39;)) %&gt;%
+  select(dateRep, countriesAndTerritories, cases) %&gt;%
+  group_by(countriesAndTerritories) %&gt;%
+  mutate(cumulativeCases = cumsum(cases))  %&gt;%
+  select(dateRep, countriesAndTerritories, cumulativeCases) %&gt;%
+  rename(countries = countriesAndTerritories)
+
+
+# Plotting the values 
+ticks = c(&quot;December&quot;,&quot;January&quot;, &#39;February&#39;,&#39;March&#39;, &#39;April&#39;, &#39;May&#39;, &#39;June&#39;,&#39;July&#39;,
+          &#39;August&#39;,&#39;September&#39;,&#39;October&#39;,&#39;November&#39;,&#39;December&#39;)
+
+
+
+y_ticks = seq(0,max(covid_data_tbl2$cumulativeCases),1250000)
+
+covid_data_tbl2 %&gt;%
+  ggplot(aes(x = as.POSIXct(dateRep, format = &#39;%d/%m/%Y&#39;), y = cumulativeCases)) +
+  geom_line(aes(color = countries), size = 1) +
+  labs(x = &#39;Year 2020&#39;, y=&#39;Cumulative Cases&#39;, fill = &#39;Countries&#39;) +
+  scale_x_datetime(date_breaks = &#39;month&#39;, labels = label_date_short()) +
+  scale_y_continuous(breaks = c(y_ticks))</code></pre>
+<p><img src="journal_files/figure-html/unnamed-chunk-8-1.png" width="1440" /></p>
+<p>##4.b Data Visualization</p>
+<pre class="r"><code>library(tidyverse)
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(readxl)
+library(scales)
+library(maps)
+library(ggmap)
+
+
+theme_set(
+  theme_dark()
+)
+
+covid_data_tbl &lt;- read_excel(&quot;C:/Users/Recep Savas/oo/r_data_works/world_Corona.xlsx&quot;)
+covid_data_tbl$cases &lt;- abs(covid_data_tbl$cases) # no negative cases :)
+covid_data_tbl$deaths &lt;- abs(covid_data_tbl$deaths) # no negative deaths :)
+
+world &lt;- map_data(&#39;world&#39;) %&gt;%
+  rename(countries = region) %&gt;%
+  dplyr::select(countries,long,lat,group) 
+  
+
+
+covid_data_tbl &lt;- covid_data_tbl %&gt;%
+  mutate(across(countriesAndTerritories, str_replace_all, &quot;_&quot;, &quot; &quot;)) %&gt;%
+  mutate(countriesAndTerritories = case_when(
+    
+    countriesAndTerritories == &quot;United Kingdom&quot; ~ &quot;UK&quot;,
+    countriesAndTerritories == &quot;United States of America&quot; ~ &quot;USA&quot;,
+    countriesAndTerritories == &quot;Czechia&quot; ~ &quot;Czech Republic&quot;,
+    TRUE ~ countriesAndTerritories
+    
+  ))
+
+population &lt;- covid_data_tbl %&gt;%
+  group_by(countriesAndTerritories) %&gt;%
+  dplyr::select(countriesAndTerritories, popData2019) %&gt;%
+  unique() %&gt;%
+  rename(countries = countriesAndTerritories)
+  
+
+mortality_rate_tbl &lt;- covid_data_tbl %&gt;%
+  group_by(countriesAndTerritories) %&gt;%
+  summarise( 
+    total_deaths = sum(deaths)
+    ) %&gt;%
+  rename(countries = countriesAndTerritories)
+
+
+useful_map &lt;- left_join(population,mortality_rate_tbl, by = &quot;countries&quot;)
+
+final_tbl &lt;- left_join(world, useful_map, by = &#39;countries&#39;) %&gt;%
+  mutate(mort_rate = total_deaths / popData2019)
+
+#plotting the values
+ggplot(final_tbl, aes(long, lat, group = group))+
+  geom_polygon(aes(fill = mort_rate), color = &quot;black&quot;)+
+  scale_fill_gradient(low = &#39;red&#39;, high = &#39;black&#39;, na.value = &#39;white&#39;)</code></pre>
+<p><img src="journal_files/figure-html/unnamed-chunk-9-1.png" width="1440" /></p>
+<pre class="r"><code>#During these exercises I had significant help from my neighbor &#39;Erminke1&#39;. We went through exercises together. To be honest, he was the one who contributed more than me. You might realise this also but I wanted to inform to you in advance.
+
+#!My computer was not able to run the 3th wrangling challenge due to limited hardware storage!</code></pre>
 
 
 
