@@ -656,7 +656,6 @@ ggplot(final_tbl, aes(long, lat, group = group))+
   scale_fill_gradient(low = 'red', high = 'black', na.value = 'white')
   
 
-#During these exercises I had significant help from my neighbor 'Erminke1'. We went through exercises together. To be honest, he was the one who contributed more than me. You might realise this also but I wanted to inform to you in advance.
 
 #!My computer was not able to run the 3th wrangling challenge due to limited hardware storage!
 
