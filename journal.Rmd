@@ -1,7 +1,7 @@
 ---
 title: "Journal (reproducible report)"
-author: "Joschka Schwarz"
-date: "2020-11-05"
+author: "Recep Savas "
+date: "2020-11-29"
 output:
   html_document:
     toc: true
@@ -9,46 +9,660 @@ output:
     collapsed: false
     number_sections: true
     toc_depth: 3
+    fig_width: 15
+    fig_height: 10
     #code_folding: hide
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(message=FALSE,warning=FALSE, cache=TRUE)
 ```
-
-**IMPORTANT:** You can delete everything in here and start fresh. You might want to start by not deleting anything above this line until you know what that stuff is doing.
-
-This is an `.Rmd` file. It is plain text with special features. Any time you write just like this, it will be compiled to normal text in the website. If you put a \# in front of your text, it will create a top level-header.
-
-# My first post
-
 Last compiled: `r Sys.Date()`
 
-Notice that whatever you define as a top level header, automatically gets put into the table of contents bar on the left. 
 
-## Second level header
 
-You can add more headers by adding more hashtags. These won't be put into the table of contents
 
-### third level header
+##1 Introduction to Tidyverse Challenge
+```{r, echo = TRUE}
 
-Here's an even lower level header
+library(tidyverse)
+library(readxl)
+library(lubridate)
 
-# My second post (note the order)
 
-Last compiled: `r Sys.Date()`
+bikes <- read_excel("C:/Users/Recep Savas/oo/r_data_works/DS_101/00_data/01_bike_sales/01_raw_data/bikes.xlsx")
+orderlines <- read_excel("C:/Users/Recep Savas/oo/r_data_works/DS_101/00_data/01_bike_sales/01_raw_data/orderlines.xlsx")
+bikeshops <- read_excel("C:/Users/Recep Savas/oo/r_data_works/DS_101/00_data/01_bike_sales/01_raw_data/bikeshops.xlsx")
 
-I'm writing this tutorial going from the top down. And, this is how it will be printed. So, notice the second post is second in the list. If you want your most recent post to be at the top, then make a new post starting at the top. If you want the oldest first, do, then keep adding to the bottom
+new_orderlines_combined <- orderlines %>%
+  
+  left_join(bikes, by=c('product.id' = 'bike.id')) %>%
+  left_join(bikeshops, by = c('customer.id' = "bikeshop.id"))
 
-# Adding R stuff
 
-So far this is just a blog where you can write in plain text and serve your writing to a webpage. One of the main purposes of this lab journal is to record your progress learning R. The reason I am asking you to use this process is because you can both make a website, and a lab journal, and learn R all in R-studio. This makes everything really convenient and in the same place. 
+wrangled_tbl <- new_orderlines_combined  %>%
+  
+  separate(col = category,
+           into = c('category.1', 'category.2', 'category.3'),
+           sep = ' - ') %>%
+  
+  separate(col = location,
+           into = c('city', 'state'),
+           sep = ',') %>%
+  
+  mutate(total.price = price * quantity) %>%
+  
+  select(-...1,-gender) %>%
+  
+  select(-ends_with('.id')) %>%
+  
+  bind_cols(new_orderlines_combined  %>% select(order.id)) %>%
+  
+  select(order.id, contains('order'), contains('model'), contains("category"),
+         price, quantity, total.price,
+         everything()) %>%
+  
+  rename(bikeshop = name) %>%
+  set_names(names(.) %>%  str_replace_all("\\.", "_"))
 
-So, let's say you are learning how to make a histogram in R. For example, maybe you want to sample 100 numbers from a normal distribution with mean = 0, and standard deviation = 1, and then you want to plot a histogram. You can do this right here by using an r code block, like this:
 
-```{r}
-samples <- rnorm(100, mean=0, sd=1)
-hist(samples)
+sales_by_year <- wrangled_tbl %>%
+  
+  #order_date and total_price are selected
+  select(order_date, total_price, state) %>%
+  
+  #New column created
+  mutate(year = year(order_date)) %>%
+  
+  #Grouped by year and location. Shows total prices per year according to locations.
+  group_by(year, state) %>%
+  summarize(sales = sum(total_price)) %>%
+  
+  #Add another column which basically presents the data in a nicer format
+  mutate(sales_text = scales::dollar(sales, big.mark = ".", decimal.mark = ",",
+                                     prefix = "",
+                                     suffix = '€'))
+
+
+
+sales_by_year %>%
+  
+  ggplot(aes(x = year, y = sales, fill = state)) +
+  geom_col() + # Run up to here to get a stacked bar plot
+  facet_wrap(~ state) +
+  
+  scale_y_continuous(labels = scales::dollar_format(big.mark = ".", 
+                                                    decimal.mark = ",", 
+                                                    prefix = "", 
+                                                    suffix = " €")) +
+  labs(
+    title = "Revenue by year and state",
+    subtitle = "Each product category has an upward trend",
+    fill = "States" # Changes the legend name
+  )
+  
 ```
 
-When you knit this R Markdown document, you will see that the histogram is printed to the page, along with the R code. This document can be set up to hide the R code in the webpage, just delete the comment (hashtag) from the cold folding option in the yaml header up top. For purposes of letting yourself see the code, and me see the code, best to keep it the way that it is. You'll learn that all of these things and more can be customized in each R code block.
+
+##2.a Data Acquisition (API)
+```{r, echo = TRUE, results='asis'}
+  
+library(pacman)
+library(jsonlite)
+library(glue)
+library(httr)
+library(rstudioapi)
+library(tidyverse)
+
+  
+ACCUWEATHER_KEY    <- "h4m7GxGcfc0XDPinDma8sEfj2Ar7iR85"
+
+
+raw_accuweather_data <- GET(glue("http://dataservice.accuweather.com/forecasts/v1/daily/1day/178087?apikey={ACCUWEATHER_KEY}"))
+
+
+accuweather_data <- content(raw_accuweather_data, as = 'text')
+accuweather_data_json <- fromJSON(accuweather_data)
+berlin_forecast <- accuweather_data_json$DailyForecasts
+
+  
+    
+```
+  
+  
+  
+  
+  
+
+
+
+##2.b Data Acquisition
+```{r, echo = TRUE}
+library(RSQLite)
+library(tidyverse)
+library(httr)
+library(glue)
+library(jsonlite)
+library(rvest)
+library(stringi)
+library(xopen)
+library(dplyr)
+
+base_url <- 'https://www.rosebikes.com/bikes'
+
+# 1. Function to get bike family URLs.
+get_bike_family_urls <- function(base_url) {
+  
+  bike_family_urls <- read_html(base_url) %>%
+    html_nodes(css = ".catalog-categories-item > a") %>%
+    html_attr('href') %>%
+    
+    # Convert vector to tibble
+    
+    enframe(name = "position", value = "subdirectory") %>%
+    # Add the domain because we will get only the subdirectories
+    mutate(
+      url = glue('https://www.rosebikes.com{subdirectory}')
+    ) 
+  
+  bike_family_urls <- bike_family_urls %>% 
+    filter(!grepl('sale', url)) %>%
+    filter(!grepl('kids', url))
+  bike_family_urls <- bike_family_urls['url']
+  
+}
+
+
+# 2. Function to get bike family URLs.
+
+get_model_urls <- function(url) {
+  
+  bike_type_url <- read_html(url) %>%
+    html_nodes(css = ".catalog-category-bikes__content > a") %>%
+    html_attr('href') %>%
+    enframe(name = "position", value = "url") %>%
+    mutate(url = glue('https://www.rosebikes.com{url}')) 
+}
+
+
+# 3. Function to get the names of each bike 
+
+get_bike_names <- function(url) {
+  
+  bike_model_name_tbl <- read_html(url) %>%
+    html_nodes(css = ".catalog-category-model__title") %>%
+    html_text() %>%
+    # Convert vector to tibble
+    as_tibble()
+    
+  
+}
+
+# 4. Function to get the prices of each bike 
+
+get_bike_prices <- function(url) {
+  
+  bike_model_price_tbl <- read_html(url) %>%
+    html_nodes(css = ".product-tile-price__current-value") %>%
+    html_text() %>%
+    # Convert vector to tibble
+    as_tibble()
+  
+}
+
+
+
+#### APPLYING ABOVE FUNCTIONS
+
+bike_family_url_tbl <- get_bike_family_urls(base_url)
+bike_family_url_tbl <- bike_family_url_tbl %>%
+  slice(1:3) # Pick 3 categories
+
+
+
+
+# Create a table with bike model URLS
+bike_model_url_tbl <- tibble()
+
+for (i in seq_along(bike_family_url_tbl$url)) {
+  
+  web <- toString(bike_family_url_tbl$url[i])
+  bike_model_url_tbl <- bind_rows(bike_model_url_tbl, get_model_urls(web))
+  
+}
+
+
+# Create a table with bike model names
+bike_model_names_tbl <- tibble()
+
+for (i in seq_along(bike_model_url_tbl$url)) {
+  
+  web <- toString(bike_model_url_tbl$url[i])
+  bike_model_names_tbl <- bind_rows(bike_model_names_tbl, get_bike_names(web))
+  
+}
+
+# Rename cols
+names(bike_model_names_tbl)[1] <- "Bike Model"
+
+
+
+# Create a table with bike prices
+bike_model_prices_tbl <- tibble()
+
+for (i in seq_along(bike_model_url_tbl$url)) {
+
+  web <- toString(bike_model_url_tbl$url[i])
+  bike_model_prices_tbl <- bind_rows(bike_model_prices_tbl, get_bike_prices(web))
+
+}
+
+# Rename cols
+names(bike_model_prices_tbl)[1] <- "Bike Prices"
+
+# Join into one table
+table_of_prices <- bind_cols(bike_model_names_tbl,bike_model_prices_tbl)
+
+knitr::kable(table_of_prices[1:10, ], caption = 'Rosebike Bike Model & Prices')
+
+
+
+
+  
+```
+  
+  
+
+##3.a Data Wrangling
+```{r, echo = TRUE, eval=FALSE}
+
+
+library(vroom)
+library(RSQLite)
+library(tidyverse)
+library(httr)
+library(glue)
+library(jsonlite)
+library(rvest)
+library(stringi)
+library(xopen)
+library(dplyr)
+
+col_types <- list(
+  id = col_character(),
+  type = col_character(),
+  number = col_character(),
+  country = col_character(),
+  date = col_date("%Y-%m-%d"),
+  abstract = col_character(),
+  title = col_character(),
+  kind = col_character(),
+  num_claims = col_double(),
+  filename = col_character(),
+  withdrawn = col_double()
+)
+
+# Applying Assignee File Table
+col_types2 <- list(
+  id = col_character(),
+  type = col_character(),
+  name_first = col_character(),
+  name_last = col_character(),
+  organization = col_character()
+)
+
+# Applying Patent Assignee File Table
+col_types3 <- list(
+  patent_id = col_character(),
+  assignee_id = col_character(),
+  location_id = col_character()
+)
+  
+  
+  
+  
+
+position_file1 <- ("C:/Users/Recep Savas/oo/r_data_works/0.3 Data Wrangling/patent.tsv")
+position_file2 <- ("C:/Users/Recep Savas/oo/r_data_works/0.3 Data Wrangling/assignee.tsv")
+position_file3 <- ("C:/Users/Recep Savas/oo/r_data_works/0.3 Data Wrangling/patent_assignee.tsv")
+
+patent_table <- vroom(
+  file       = position_file1, 
+  delim      = "\t", 
+  col_types  = col_types,
+  na         = c("", "NA", "NULL")
+)
+
+
+assignee_table <- vroom(
+  file       = position_file2, 
+  delim      = "\t", 
+  col_types  = col_types2,
+  na         = c("", "NA", "NULL")
+)
+
+pat_assignee_table <- vroom(
+  file       = position_file3, 
+  delim      = "\t", 
+  col_types  = col_types3,
+  na         = c("", "NA", "NULL")
+) 
+
+
+
+
+
+
+# ----The most assigned/gra patents among the 10 US companies----
+
+
+# Reaching the patents by corporations from assignee table ,  
+# for the typeof "2" 
+
+# names and assignee IDs of USA corporation 
+corp_id_names <- assignee_table %>%
+  select(id, type, organization) %>%
+  filter(type == 2) # to make sure these are from USA
+
+
+
+
+# Find companies in the world with assigned a patent. 
+# Group by the assignee_id, which is unique to each corporation, 
+# afterwards find the number of patents for each corporation.
+
+
+top_patent_wrld <- pat_assignee_table %>%
+  group_by(assignee_id) %>%
+  summarize(
+    count = n()
+    
+    ) %>%
+  ungroup() %>%
+  arrange(desc(count)) %>%
+  rename(id = assignee_id) %>%
+  head(100)           # Top 100 companies in the world which have been granted a patent.
+                                  
+
+# Top 100 companies in the world is reasonably high to cross reference with
+# U.S companies. To do this, a right_join by their unique id can be used.
+
+top_10_us <- right_join(top_patent_wrld, corp_id_names, by = 'id') %>%
+  head(10) %>%
+  select(organization)
+  
+
+temp = "C:/Users/Recep Savas/oo/ws20-business-data-science-basics---lab-journal-savars/top10.rds"
+write_rds(top_10_us, temp)
+
+```
+
+
+```{r, echo = TRUE}
+read_rds("C:/Users/Recep Savas/oo/ws20-business-data-science-basics---lab-journal-savars/top10.rds")
+```
+
+
+
+
+##3.b Data Wrangling
+```{r, echo = TRUE, eval=FALSE}
+
+
+
+library(vroom)
+library(RSQLite)
+library(tidyverse)
+library(httr)
+library(glue)
+library(jsonlite)
+library(rvest)
+library(stringi)
+library(xopen)
+library(dplyr)
+
+col_type <- list(
+  id = col_character(),
+  type = col_character(),
+  number = col_character(),
+  country = col_character(),
+  date = col_date("%Y-%m-%d"),
+  abstract = col_character(),
+  title = col_character(),
+  kind = col_character(),
+  num_claims = col_double(),
+  filename = col_character(),
+  withdrawn = col_double()
+)
+
+# Applying Assignee File Table
+col_type2 <- list(
+  id = col_character(),
+  type = col_character(),
+  name_first = col_character(),
+  name_last = col_character(),
+  organization = col_character()
+)
+
+# Applying Patent Assignee File Table
+col_type3 <- list(
+  patent_id = col_character(),
+  assignee_id = col_character(),
+  location_id = col_character()
+)
+  
+  
+  
+  
+
+doc_path1 <- ("C:/Users/Recep Savas/oo/r_data_works/0.3 Data Wrangling/patent.tsv")
+doc_path2 <- ("C:/Users/Recep Savas/oo/r_data_works/0.3 Data Wrangling/assignee.tsv")
+doc_path3 <- ("C:/Users/Recep Savas/oo/r_data_works/0.3 Data Wrangling/patent_assignee.tsv")
+
+patent_table <- vroom(
+  file       = doc_path1, 
+  delim      = "\t", 
+  col_type  = col_type,
+  na         = c("", "NA", "NULL")
+)
+
+
+assignee_table <- vroom(
+  file       = doc_path2, 
+  delim      = "\t", 
+  col_type  = col_type2,
+  na         = c("", "NA", "NULL")
+)
+
+pat_assignee_table <- vroom(
+  file       = doc_path3, 
+  delim      = "\t", 
+  col_type  = col_type3,
+  na         = c("", "NA", "NULL")
+) 
+
+
+
+
+# to get "U.S Companies Names and IDs" from assignee.tsv data
+us_corporation_filter <- assignee_table %>%
+  filter(type == 2) %>%
+  select(id, organization) %>%
+  rename(assignee_id = id) 
+
+
+# to get "patents issued in 2019" by filtering patent.tsv 
+issued_2019 <- patent_table %>%
+  filter(year(date) == 2019) %>%
+  select(number) %>%
+  rename(patent_id = number)
+  
+# Combine U.S corporation assignee numbers with companies that have 
+# been assigned a patent (from around the world). This gives patents by their ID filed by 
+# u.s companies. 
+
+dt1 <- merge(us_corporation_filter,pat_assignee_table,by="assignee_id")
+
+
+# Then combine the table of patents issued in the U.S for 2019
+dt2 <- merge(dt1, issued_2019, by = "patent_id") %>%
+  group_by(organization) %>%
+  summarise(
+    count = n()
+  ) %>%
+  arrange(desc(count)) %>%
+  head(10)
+
+
+world_corporation_filter <- assignee_table %>%
+  filter((type == 2 | type == 3)) %>%
+  select(id, organization) %>%
+  rename(assignee_id = id) 
+
+dt3 <- merge(world_corporation_filter,pat_assignee_table,by="assignee_id")
+dt4 <- merge(dt3, issued_2019, by = "patent_id") %>%
+  group_by(organization) %>%
+  summarise(
+    count = n()
+  ) %>%
+  arrange(desc(count)) %>%
+  head(10)
+
+memory.limit(size = 6000)
+temp2 = "C:/Users/Recep Savas/oo/ws20-business-data-science-basics---lab-journal-savars/top102019.rds"
+write_rds(dt4, temp2)
+```
+
+
+
+```{r, echo = TRUE}
+ read_rds("C:/Users/Recep Savas/oo/ws20-business-data-science-basics---lab-journal-savars/top102019.rds")
+```
+
+
+
+
+##4.a Data Visualization
+```{r, echo = TRUE}
+
+
+
+library(tidyverse)
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(scales)
+library(readxl)
+
+
+covid_data_tbl <- read_excel("C:/Users/Recep Savas/oo/r_data_works/world_Corona.xlsx")
+covid_data_tbl <- covid_data_tbl[order(as.Date(covid_data_tbl$dateRep, format="%d/%m/%Y")),]
+covid_data_tbl$cases <- abs(covid_data_tbl$cases) # no negative cases :)
+
+
+covid_data_tbl2 <- covid_data_tbl %>%
+  filter(countriesAndTerritories %in% c('France', 'Germany','United_States_of_America' , 'Spain', 'United_Kingdom')) %>%
+  select(dateRep, countriesAndTerritories, cases) %>%
+  group_by(countriesAndTerritories) %>%
+  mutate(cumulativeCases = cumsum(cases))  %>%
+  select(dateRep, countriesAndTerritories, cumulativeCases) %>%
+  rename(countries = countriesAndTerritories)
+
+
+# Plotting the values 
+ticks = c("December","January", 'February','March', 'April', 'May', 'June','July',
+          'August','September','October','November','December')
+
+
+
+y_ticks = seq(0,max(covid_data_tbl2$cumulativeCases),1250000)
+
+covid_data_tbl2 %>%
+  ggplot(aes(x = as.POSIXct(dateRep, format = '%d/%m/%Y'), y = cumulativeCases)) +
+  geom_line(aes(color = countries), size = 1) +
+  labs(x = 'Year 2020', y='Cumulative Cases', fill = 'Countries') +
+  scale_x_datetime(date_breaks = 'month', labels = label_date_short()) +
+  scale_y_continuous(breaks = c(y_ticks))
+  
+  
+  
+```
+
+
+
+
+
+  
+##4.b Data Visualization
+```{r, echo = TRUE}
+library(tidyverse)
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(readxl)
+library(scales)
+library(maps)
+library(ggmap)
+
+
+theme_set(
+  theme_dark()
+)
+
+covid_data_tbl <- read_excel("C:/Users/Recep Savas/oo/r_data_works/world_Corona.xlsx")
+covid_data_tbl$cases <- abs(covid_data_tbl$cases) # no negative cases :)
+covid_data_tbl$deaths <- abs(covid_data_tbl$deaths) # no negative deaths :)
+
+world <- map_data('world') %>%
+  rename(countries = region) %>%
+  dplyr::select(countries,long,lat,group) 
+  
+
+
+covid_data_tbl <- covid_data_tbl %>%
+  mutate(across(countriesAndTerritories, str_replace_all, "_", " ")) %>%
+  mutate(countriesAndTerritories = case_when(
+    
+    countriesAndTerritories == "United Kingdom" ~ "UK",
+    countriesAndTerritories == "United States of America" ~ "USA",
+    countriesAndTerritories == "Czechia" ~ "Czech Republic",
+    TRUE ~ countriesAndTerritories
+    
+  ))
+
+population <- covid_data_tbl %>%
+  group_by(countriesAndTerritories) %>%
+  dplyr::select(countriesAndTerritories, popData2019) %>%
+  unique() %>%
+  rename(countries = countriesAndTerritories)
+  
+
+mortality_rate_tbl <- covid_data_tbl %>%
+  group_by(countriesAndTerritories) %>%
+  summarise( 
+    total_deaths = sum(deaths)
+    ) %>%
+  rename(countries = countriesAndTerritories)
+
+
+useful_map <- left_join(population,mortality_rate_tbl, by = "countries")
+
+final_tbl <- left_join(world, useful_map, by = 'countries') %>%
+  mutate(mort_rate = total_deaths / popData2019)
+
+#plotting the values
+ggplot(final_tbl, aes(long, lat, group = group))+
+  geom_polygon(aes(fill = mort_rate), color = "black")+
+  scale_fill_gradient(low = 'red', high = 'black', na.value = 'white')
+  
+
+
+#!My computer was not able to run the 3th wrangling challenge due to limited hardware storage!
+
+  
+```
+
+  
+  
+  
+  
